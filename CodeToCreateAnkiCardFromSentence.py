@@ -29,6 +29,26 @@ from google.cloud import texttospeech
 
 client_speech = texttospeech.TextToSpeechClient()
 
+class sentence_class:
+    def __init__(self, sentence, sentence_index, english_sentence):
+        self.sentence = sentence
+        self.sentence_index = sentence_index
+        self.chosen = False
+        self.english_sentence = english_sentence
+        
+    def change_chosen(self):
+        self.chosen = not self.chosen
+    def get_chosen(self):
+        return self.chosen
+    def get_serbian(self):
+        return self.sentence
+    def get_english(self):
+        return self.english_sentence
+    def get_index(self):
+        return self.sentence_index
+    
+
+
 class ankiWord:
     def __init__(self, word, width, height, input_sentence, root):
         self.word = word
@@ -39,15 +59,15 @@ class ankiWord:
         self.screen_generated = False
 
         self.translation = self.translate(word)
-        self.sentences = self.find_all_examples(word)
-        self.sentences_english = []
-        if self.sentences is not None:
-            for sentence in self.sentences:
-                self.sentences_english.append(self.translate(sentence))
+        sentence_examples = self.find_all_examples(word)
+        self.sentences = []
+        if sentence_examples is not None:
+            for i in range(sentence_examples.shape[0]):
+                example = sentence_examples.iloc[i]
+                new_sentence = sentence_class(example["Serbian"], i, example["English"])
+                self.sentences.append(new_sentence)
 
-        self.input_sentence = input_sentence
-
-        self.translated_input_sentence = self.translate(input_sentence)
+        self.input_sentence = sentence_class(input_sentence, len(self.sentences), self.translate(input_sentence))
 
         self.word_index_to_show = 0
         self.chosen_sentence = None
@@ -113,31 +133,31 @@ class ankiWord:
         self.widget.pack_forget()
 
     def sentences_list(self):
-        if len(self.sentences_english) > 0:
-            indexes = [self.word_index_to_show, (self.word_index_to_show + 1) % len(self.sentences_english), 
-                   (self.word_index_to_show + 2) %len(self.sentences_english)]
+        if len(self.sentences) > 0:
+            indexes = [self.word_index_to_show, (self.word_index_to_show + 1) % len(self.sentences), 
+                   (self.word_index_to_show + 2) %len(self.sentences)]
             return indexes
         return []
 
     def select_sentence(self, index):
-        print("we got here")
         if index <= 2:
-            print(f"self sentences {self.word_index_to_show}")
-            self.chosen_sentence = self.sentences.iloc[(self.word_index_to_show + index) % len(self.sentences_english)]["Serbian"]
-            self.chosen_sentence_english = self.sentences.iloc[(self.word_index_to_show + index) % len(self.sentences_english)]["English"]
+            self.chosen_sentence = self.sentences[(self.word_index_to_show + index) % len(self.sentences)]
         elif index == 3:
             self.chosen_sentence = self.input_sentence
-            self.chosen_sentence_english = self.translate(self.input_sentence)
         else: 
-            self.chosen_sentences = self.own_example_sentence.get()
-            self.chosen_sentence_english = self.translate(self.chosen_sentence)
+            self.chosen_sentence = self.own_example_sentence
+        self.chosen_sentence_serbian = self.chosen_sentence.get_serbian()
+        self.chosen_sentence_english = self.chosen_sentence.get_english()
             
 
     def adding_translation_to_written_sentence(self, event, frame):
-        translated = self.translate(self.own_example_sentence.get())
+        sentence = self.own_example_sentence_box.get()
+        translated = self.translate(sentence)
         sentence_translated = tk.Label(frame, text = translated,
                                                 font = ("Helvetica", 12), fg = "black")
         sentence_translated.grid(row = 4 * 2 + 1, column = 2)
+        self.own_example_sentence = sentence_class(sentence, len(self.sentences) + 1, translated)
+
 
 
 
@@ -150,22 +170,23 @@ class ankiWord:
                 font = ("Helvetica", 16, "bold"), fg = "black"
             )
             word_translation.pack(padx = 15, pady= 10)
-            self.screen_generated = True
+            self.screen_generated = True 
 
             #Shows three sentences and their translation with a button next to each
             indexes_to_show = self.sentences_list()
 
             frame2 = tk.Frame(self.widget, bg = "lightblue", width = self.width - 20, height = 30)
             frame2.pack()
+
             if len(indexes_to_show) > 0:
                 for index in indexes_to_show:
                     button = tk.Button(frame2, text = index, 
                                    command = lambda val = index: self.select_sentence(val))
                     button.grid(row = int(index)*2, column = 0, rowspan = 2, pady = (20,0))
 
-                    sentence = tk.Label(frame2, text = self.sentences.iloc[int(index)]["Serbian"],
+                    sentence = tk.Label(frame2, text = self.sentences[int(index)].get_serbian(),
                                         font = ("Helvetica", 12), fg = "black")
-                    sentence_english = tk.Label(frame2, text = self.sentences.iloc[int(index)]["English"],
+                    sentence_english = tk.Label(frame2, text = self.sentences[int(index)].get_english(),
                                                 font = ("Helvetica", 12), fg = "black")
                     sentence.grid(row = int(index)*2, column = 2, pady = (20,0))
                     sentence_english.grid(row = int(index)*2 + 1, column = 2)
@@ -174,9 +195,10 @@ class ankiWord:
                                command = lambda val = 3: self.select_sentence(val))
             button.grid(row = 3 * 2, column = 0, rowspan= 2, pady = (20, 0))
 
-            sentence = tk.Label(frame2, text = self.input_sentence, font = ("Helvetica", 12), fg = "black")
-            sentence_english = tk.Label(frame2, text = self.translate(self.input_sentence), 
+            sentence = tk.Label(frame2, text = self.input_sentence.get_serbian(), font = ("Helvetica", 12), fg = "black")
+            sentence_english = tk.Label(frame2, text = self.input_sentence.get_english(), 
                                         font = ("Helvetica", 12), fg= "black")
+
             sentence.grid(row = 3 * 2, column = 2, pady = (20,0))
             sentence_english.grid(row = 3 * 2 + 1, column = 2)
 
@@ -185,9 +207,9 @@ class ankiWord:
                                command = lambda val = 4: self.select_sentence(val))
             button.grid(row = 4 * 2, column = 0, rowspan = 2, pady = (20,0))
 
-            self.own_example_sentence = tk.Entry(frame2)
-            self.own_example_sentence.grid(row = 4 * 2, column = 2, pady = (20,0))
-            self.own_example_sentence.bind("<Return>", 
+            self.own_example_sentence_box = tk.Entry(frame2)
+            self.own_example_sentence_box.grid(row = 4 * 2, column = 2, pady = (20,0))
+            self.own_example_sentence_box.bind("<Return>", 
                                            lambda event: self.adding_translation_to_written_sentence(event, frame2))
 
                 
@@ -294,11 +316,11 @@ class AnkiAdder:
         )
         sentence_label.pack(padx = 15, pady= 10)
         
-        self.sentence_entry = tk.Entry(root)
-        self.sentence_entry.pack(padx = 10)
+        self.sentence_entry_box = tk.Entry(root)
+        self.sentence_entry_box.pack(padx = 10)
         self.num_words_selected = 0
         
-        self.sentence_entry.bind("<Return>", self.enter_sentence)
+        self.sentence_entry_box.bind("<Return>", self.enter_sentence)
 
 
         #Creates word choice
@@ -314,9 +336,6 @@ class AnkiAdder:
         self.word_screen()
 
         #function to add or delete 
-        print(f"len is {len(self.chosen_words)}")
-    
-        print("Len")
         add_button = tk.Button(root, text = "Add", command= self.adding_anki)
         add_button.pack(padx = 10, pady = 10)
 
@@ -330,7 +349,7 @@ class AnkiAdder:
         for the word to True/False and changes colour of button
         Input: 
             i: the index of the word we are adding
-        """    
+        """   
         if self.chosen_words[i].return_clicked():
              colour = 'red'
              self.chosen_words[i].get_clicked()
@@ -367,7 +386,7 @@ class AnkiAdder:
         """
         self.frame.destroy()
         self.frame = tk.Frame(root, bg = "lightblue", width = self.width - 20, height = 30)
-        self.sentence_entry = self.sentence_entry.get()
+        self.sentence_entry = self.sentence_entry_box.get()
         self.words_in_sentence = self.sentence_entry.split(" ")
         self.create_word_selection_screen()
 
