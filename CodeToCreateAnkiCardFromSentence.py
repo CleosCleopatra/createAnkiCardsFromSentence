@@ -6,6 +6,7 @@ import google.auth
 import requests
 import pandas as pd
 import config
+import customtkinter
 
 df = pd.read_csv(config.csv_file, sep="\t", names = ["Serbian_id", "Serbian", "English_id", "English"])
 
@@ -32,26 +33,36 @@ client_speech = texttospeech.TextToSpeechClient()
 
 
 class toggleButton:
-    def __init__(self, parent, text, command = None):
+    def __init__(self, parent, text, num_button, command = None):
         print("togglebutton run")
         self.value = False
         self.command = command
 
-        self.button = tk.Button(
-            parent,
-            text = text,
-            font = ("Segoe UI", 10),
-            bg = "#f4f4f4",
-            fg = "#222222",
-            activebackground="#e0e0e0",
-            activeforeground="#222222",
-            relief = "flat",
-            bd = 0,
-            padx = 12,
-            pady = 6,
-            cursor = "hand2",
-            command = self.toggle
-        )
+        if not num_button:
+            self.button = customtkinter.CTkButton(
+                parent,
+                text = text,
+                font = ("Segoe UI", 10),
+                fg_color = "#f4f4f4",
+                text_color = "#222222",
+                corner_radius = 7,
+                cursor = "hand2",
+                command = self.toggle,
+                width = 30
+            )
+        else: 
+            self.button = customtkinter.CTkButton(
+                parent,
+                text = text,
+                font = ("Segoe UI", 10),
+                fg_color = "#f4f4f4",
+                text_color = "#222222",
+                corner_radius = 2,
+                cursor = "hand2",
+                command = self.toggle,
+                width = 5,
+                height = 5
+            )
 
     def get_button(self):
         print("get button run")
@@ -60,7 +71,7 @@ class toggleButton:
     def toggle(self):
         print("toggle run")
         self.value = not self.value
-        self.update_colour
+        self.update_colour()
 
         if self.command:
             self.command(self.value)
@@ -77,17 +88,13 @@ class toggleButton:
     def update_colour(self):
         print("update colour")
         if self.value:
-            self.button.config(
-                bg="#4CAF50",
-                fg = "white",
-                activebackground="#45a049",
-                activeforeground="white")
+            self.button.configure(
+                fg_color="#2f71eb",
+                text_color = "white")
         else: 
-            self.button.config(
-                bg="#f4f4f4",
-                fg = "#222222",
-                activebackground="#e0e0e0",
-                activeforeground="#222222"
+            self.button.configure(
+                fg_color="#f4f4f4",
+                text_color = "#222222"
             )
     
 
@@ -117,13 +124,13 @@ class sentence_class:
 
 
 class ankiWord:
-    def __init__(self, word, width, height, input_sentence, root):
+    def __init__(self, word, width, height, input_sentence, input_translation, current):
         print("ankiword init")
         self.word = word
         self.width = width
         self.height = height
         self.clicked = False
-        self.widget = tk.Frame(root, bg = "lightblue", width = self.width - 20, height = 30)
+        self.widget = tk.Frame(current, bg = "lightblue", width = self.width - 20, height = 30)
         self.screen_generated = False
 
         self.translation = self.translate(word)
@@ -135,7 +142,7 @@ class ankiWord:
                 new_sentence = sentence_class(example["Serbian"], i, example["English"])
                 self.sentences.append(new_sentence)
 
-        self.input_sentence = sentence_class(input_sentence, len(self.sentences), self.translate(input_sentence))
+        self.input_sentence = sentence_class(input_sentence, len(self.sentences), input_translation)
 
         self.word_index_to_show = 0
         self.chosen_sentence = None
@@ -219,12 +226,20 @@ class ankiWord:
     def select_sentence(self, index, state):
         print(f"state is {state}, index is {index}")
         print("select sentence")
-        if index <= 2:
-            self.chosen_sentence = self.sentences[(self.word_index_to_show + index) % len(self.sentences)]
-        elif index == 3:
-            self.chosen_sentence = self.input_sentence
-        else: 
-            self.chosen_sentence = self.own_example_sentence
+        if len(self.sentences) == 0:
+            if index == 3:
+                self.chosen_sentence = self.input_sentence
+            elif index == 4:
+                self.chosen_sentence = self.own_example_sentence
+            else: 
+                return
+        else:
+            if index <= 2:
+                self.chosen_sentence = self.sentences[(self.word_index_to_show + index) % len(self.sentences)]
+            elif index == 3:
+                self.chosen_sentence = self.input_sentence
+            else: 
+                self.chosen_sentence = self.own_example_sentence
         self.chosen_sentence_serbian = self.chosen_sentence.get_serbian()
         self.chosen_sentence_english = self.chosen_sentence.get_english()
 
@@ -259,43 +274,79 @@ class ankiWord:
                 self.widget, text = self.translate(self.word),
                 font = ("Helvetica", 16, "bold"), fg = "black"
             )
-            word_translation.pack(padx = 15, pady= 10)
+            word_translation.pack(padx = 15, pady= 3)
             self.screen_generated = True 
 
             #Shows three sentences and their translation with a button next to each
             indexes_to_show = self.sentences_list()
 
-            frame2 = tk.Frame(self.widget, bg = "lightblue", width = self.width - 20, height = 30)
-            frame2.pack()
+            frame2 = tk.Frame(
+                self.widget, 
+                bg = "red")
+            frame2.pack(
+                fill = "both",
+                expand = True
+            )
 
             if len(indexes_to_show) > 0:
                 for index in indexes_to_show:
-                    button = toggleButton(frame2, text = index, 
+                    button = toggleButton(frame2, text = index, num_button= True,
                                    command = lambda state, val = index: self.select_sentence(val, state))
                     button.button.grid(row = int(index)*2, column = 0, rowspan = 2, pady = (20,0))
 
-                    sentence = tk.Label(frame2, text = self.sentences[int(index)].get_serbian(),
-                                        font = ("Helvetica", 12), fg = "black")
-                    sentence_english = tk.Label(frame2, text = self.sentences[int(index)].get_english(),
-                                                font = ("Helvetica", 12), fg = "black")
+                    sentence = tk.Label(
+                        frame2, 
+                        text = self.sentences[int(index)].get_serbian(),
+                        font = ("Helvetica", 12), 
+                        fg = "black",
+                        bg = "white",
+                        wraplength=self.width - 100,
+                        justify = "left"
+                    )
+
+                    sentence_english = tk.Label(
+                        frame2, 
+                        text = self.sentences[int(index)].get_english(),
+                        font = ("Helvetica", 12), 
+                        fg = "black",
+                        bg = "white",
+                        wraplength=self.width - 100,
+                        justify = "left"
+                    )
                     sentence.grid(row = int(index)*2, column = 2, pady = (20,0))
                     sentence_english.grid(row = int(index)*2 + 1, column = 2)
                     self.select_sentence_buttons.append(button)
             #add the input question
-            button = toggleButton(frame2, text = len(indexes_to_show), 
+            button = toggleButton(frame2, text = len(indexes_to_show), num_button= True,
                                command = lambda state, val = len(indexes_to_show): self.select_sentence(val, state))
             button.button.grid(row = 3 * 2, column = 0, rowspan= 2, pady = (20, 0))
             self.select_sentence_buttons.append(button)
 
-            sentence = tk.Label(frame2, text = self.input_sentence.get_serbian(), font = ("Helvetica", 12), fg = "black")
-            sentence_english = tk.Label(frame2, text = self.input_sentence.get_english(), 
-                                        font = ("Helvetica", 12), fg= "black")
+            sentence = tk.Label(
+                frame2, 
+                text = self.input_sentence.get_serbian(), 
+                font = ("Helvetica", 12), 
+                fg = "black",
+                bg = "white",
+                wraplength = self.width - 100,
+                justify = "left"
+            )
+
+            sentence_english = tk.Label(
+                frame2, 
+                text = self.input_sentence.get_english(), 
+                font = ("Helvetica", 12), 
+                fg= "black",
+                bg = "white",
+                wraplength=self.width -100,
+                justify = "left"
+            )
 
             sentence.grid(row = 3 * 2, column = 2, pady = (20,0))
             sentence_english.grid(row = 3 * 2 + 1, column = 2)
 
             #make it possible to enter your own question
-            button = toggleButton(frame2, text = len(indexes_to_show) + 1, 
+            button = toggleButton(frame2, text = len(indexes_to_show) + 1, num_button= True,
                                command = lambda state, val = (len(indexes_to_show) + 1): self.select_sentence(val, state))
             button.button.grid(row = 4 * 2, column = 0, rowspan = 2, pady = (20,0))
             self.select_sentence_buttons.append(button)
@@ -352,7 +403,7 @@ class ankiWord:
             target_language_code= target_lang
         )
 
-        translation = response.translations[0]
+        translation = response.translations[0].translated_text
 
         return translation
 
@@ -401,9 +452,13 @@ class AnkiAdder:
         #initalisation of screen
         self.root = root
         self.root.title("Anki adder")
-        self.height = 700
-        self.width = 400
-        self.root.geometry(f"{self.width}x{self.height}")
+        self.width = 900
+        self.height = 600
+        self.root.geometry("900x600")
+        self.root.resizable(True, True)
+
+        customtkinter.set_appearance_mode("System")
+        customtkinter.set_default_color_theme("blue")
 
         #Variable
         self.current_word_screen = 0
@@ -420,9 +475,8 @@ class AnkiAdder:
         style.theme_use("clam")
 
         style.configure(
-            "Ttitle.TLabel",
-            font=("Segoe UI", 20, "bold"),
-            background = "#f5f5f5",
+            "Title.TLabel",
+            font=("Segoe UI", 15, "bold"),
             foreground = "#222222",
         )
 
@@ -440,6 +494,25 @@ class AnkiAdder:
         )
 
 
+    def translate(self, to_translate):
+            print("translate")
+            """
+            Translates the something
+            """
+            mime_type = "text/plain"
+    
+            response = client.translate_text(
+                contents = [to_translate],
+                parent = parent,
+                mime_type = mime_type,
+                source_language_code = source_lang,
+                target_language_code= target_lang
+            )
+    
+            translation = response.translations[0].translated_text
+    
+            return translation
+    
     def resetting(self):
         for word in self.chosen_words:
             word.remove_screen_for_ind_word()
@@ -453,7 +526,8 @@ class AnkiAdder:
         #Remove the screen
 
         self.num_words_selected = 0
-        self.frame.destroy()
+        self.word_area.destroy()
+        self.word_area.pack(fill = "both", expand = True, padx = 15, pady = 2)
 
     def basic_screen(self):
         print("basic screen")
@@ -463,67 +537,105 @@ class AnkiAdder:
 
         self.main_frame = tk.Frame(
             self.root,
-            bg = "#f5f5f5"
+            bg = "#fbfbfc"
         )
 
         self.main_frame.pack(
             fill = "both",
             expand = True,
-            padx = 25,
-            pady = 20
+            padx = 5,
+            pady = 5
         )
 
-        ttk.Label(
+        self.top_menu = tk.Frame(
             self.main_frame,
-            text = "Anki Adder",
-            style = "Title.TLabel"
-        ).pack(pady=(0,3))
-
-        ttk.Label(
-            self.main_frame,
-            text = "Create vocabulary cards from a sentence",
-            style = "Subtitle.TLabel"
-        ).pack(pady=(0,20))
-
-        sentence_card = tk.Frame(
-            self.main_frame,
-            bg = "white",
-            bd = 0,
-            highlightthickness = 1,
-            highlightbackground = "#dddddd"
+            highlightthickness = 2,
+            highlightbackground = "#e4ebf3",
+            bg=self.main_frame.cget("bg")
         )
 
-        sentence_card.pack(
-            fill = "x",
-            pady=(0,15)
+        self.top_menu.pack(
+            pady = (0, 5),
+            fill='x'
         )
 
         tk.Label(
-            sentence_card,
-            text = "Enter sentence",
-            font = ("Segoe UI", 11, "bold"),
-            bg= "white",
-            fg = "#333333"
+            self.top_menu,
+            text = "Anki Adder",
+            font=("Segoe UI", 15),
+            bg = self.main_frame.cget("bg")
+        ).pack(side = "left", pady=(5,5), padx = (15))
+
+        self.sentence_card = customtkinter.CTkFrame(
+            self.main_frame,
+            fg_color = "#f4f7fb",
+            border_width = 1,
+            border_color = "#e4ebf3"
+        )
+
+        self.sentence_card.pack(
+            fill = "x",
+            pady=(7,7),
+            padx =15
+        )
+
+        #Enter sentence
+
+        tk.Label(
+            self.sentence_card,
+            text = "SENTENCE",
+            font = ("Segoe UI", 5, "bold"),
+            bg= self.sentence_card.cget("fg_color"),
+            fg = "#445e82"
         ).pack(
             anchor = "w",
             padx = 15,
-            pady=(12,5)
+            pady=(5,3)
         )
 
+        self.sentence_entry = " "
+
         self.sentence_entry_box = tk.Entry(
-            sentence_card,
-            font = ("Segoe UI", 11),
+            self.sentence_card,
+            font = ("Segoe UI", 16),
             relief = "flat",
-            bg = "#f7f7f7",
+            bg = self.sentence_card.cget("fg_color"),
             bd = 0
         )
         
         self.sentence_entry_box.pack(
             fill = "x",
             padx = 15,
-            pady = (0,15),
-            ipady = 7
+            pady = (0,1)
         )
+
+
+        self.translated_label_box = tk.Entry(
+            self.sentence_card,
+            font = ("Segoe UI", 16),
+            bg = self.sentence_card.cget("fg_color"),
+            fg = "#8698b6",
+            relief = "flat",
+            bd = "0"
+        )
+
+        """
+        self.translated_label =tk.Label(
+            self.sentence_card,
+            text = translate,
+            font = ("Segoe UI", 10),
+            bg= self.sentence_card.cget("fg_color"),
+            fg = "#8698b6"
+                )
+        """
+        self.translated_label_box.pack(
+                    anchor = "w",
+                    padx = 15,
+                    pady=(1,3),
+                    fill = "x"
+                )
+
+
         
         self.num_words_selected = 0
 
@@ -532,33 +644,57 @@ class AnkiAdder:
             self.enter_sentence
         )
 
+        #word area
+
+        #####################
+
+        self.word_selection_area = tk.Frame(
+            self.main_frame,
+            bg = self.main_frame.cget("bg")
+        )
+
+        self.word_selection_area.pack(
+            fill = "both",
+            pady = (0,10)
+        )
+
+        self.select_words_label = tk.Label(
+            self.word_selection_area,
+            text = "WORDS IN SENTENCE",
+            font = ("Segoe UI", 10, "bold"),
+            fg = "#5e7395",
+            bg = self.word_selection_area.cget("bg")
+        )
+
+        self.select_words_label.pack(side = "left", padx = 7, pady=(5,3))
+
+        self.word_buttons_frame = tk.Frame(
+            self.word_selection_area,
+            bg = self.word_selection_area.cget("bg")
+        )
+
+        self.word_buttons_frame.pack(
+            fill = "x"
+        )
+
         #Creates word choice
-        tk.Label(
+        self.word_area = customtkinter.CTkFrame(
             self.main_frame,
-            text = "Select words",
-            font = ("Segoe UI", 12, "bold"),
-            bg = "#f5f5f5",
-            fg = "#333333"
-        ).pack(
-            anchor = "w",
-            pady = (0,7)
+            corner_radius=6,
+            fg_color = "#fcfcfd",
+            border_width= 1,
+            border_color="#e8eef5"
         )
 
-        self.frame = tk.Frame(
-            self.main_frame,
-            bg = "white",
-            highlightthickness= 1,
-            highlightbackground= "#dddddd"
-        )
-
-        self.frame.pack(
-            fill = "x",
-            pady = (0,15)
-        )
+        self.word_area.pack(fill = "both",
+                            expand = True,
+                            padx = 15,
+                            pady = 2
+                            )
 
         self.navigation_frame = tk.Frame(
             self.main_frame, 
-            bg = "#f5f5f5"
+            bg = "#a91b1b"
         )
 
         self.navigation_frame.pack(
@@ -569,9 +705,9 @@ class AnkiAdder:
             self.navigation_frame,
             text = "←",
             font = ("Segoe UI", 14),
-            bg = "white",
+            bg = "yellow",
             fg = "#333333",
-            activebackground="#eeeeee",
+            activebackground="#068604",
             relief = "flat",
             bd = 0,
             padx = 18,
@@ -586,9 +722,9 @@ class AnkiAdder:
             self.navigation_frame,
             text="→",
             font=("Segoe UI", 14),
-            bg="white",
+            bg="green",
             fg="#333333",
-            activebackground="#eeeeee",
+            activebackground="#33cc68",
             relief="flat",
             bd=0,
             padx=18,
@@ -600,24 +736,23 @@ class AnkiAdder:
 
         self.button_frame = tk.Frame(
             self.main_frame,
-            bg = "#f5f5f5"
+            bg = "#a51483"
         )
         self.button_frame.pack(
             side = "bottom",
-            pady = 15
+            fill = "x",
+            pady = 10
         )
         
-        #function to create window with all words
-        self.word_screen()
 
         #function to add or delete 
         self.add_button = tk.Button(
             self.button_frame,
             text = "Add to Anki",
             font = ("Segoe UI", 10, "bold"),
-            bg = "#4CAF50",
+            bg = "#3006AC",
             fg = "white",
-            activebackground= "#45a049",
+            activebackground= "#ae9a13",
             activeforeground="white",
             relief = "flat",
             bd = 0, 
@@ -633,9 +768,9 @@ class AnkiAdder:
             self.button_frame, 
             text = "Reset",
             font = ("Segoe UI", 10),
-            bg = "white",
+            bg = "yellow",
             fg = "#555555",
-            activebackground="#eeeeee",
+            activebackground="#640101",
             relief = "flat",
             bd = 0,
             padx = 20,
@@ -646,7 +781,15 @@ class AnkiAdder:
 
         self.reset_button.pack(side = "left", padx = 5)
 
+    def make_translated_text(self):
+        sentence = self.sentence_entry_box.get().strip()
 
+        if not sentence: 
+            self.translated_label_box.delete(0, tk.END)
+            return
+        translate = self.translate(self.sentence_entry)
+        self.translated_label_box.delete(0, tk.END)
+        self.translated_label_box.insert(0, translate)
 
 
     def adding_anki(self):
@@ -707,21 +850,23 @@ class AnkiAdder:
         print("create word selection screen")
         """
         Creates the buttons for selecting word in sentence
-        """     
-        self.frame.pack(
-            fill = "x",
-            padx = 0,
-            pady = 5,
-            ipady = 10
-        )
+        """ 
+        input_translation = self.translated_label_box.get()    
+        if input_translation == "":
+            input_translation = self.translate(self.sentence_entry)
         for i, word in enumerate(self.words_in_sentence):
-            self.chosen_words.append(ankiWord(word, self.width, self.height, self.sentence_entry, root))
 
-            button_for_word = toggleButton(self.frame, text = word, 
+            self.chosen_words.append(ankiWord(word, self.width, self.height, self.sentence_entry, input_translation, self.word_area))
+
+            button_for_word = toggleButton(self.word_buttons_frame, text = word, num_button=False,
                                   command = lambda state, i = i: self.select_word(i, state))
 
             self.word_buttons.append(button_for_word)
             button_for_word.button.grid(row = 0, column = i, padx = 5, pady = 8)
+
+        self.translated_label_box.delete(0, tk.END)
+        self.translated_label_box.insert(0, input_translation)
+        #####################################
 
     def enter_sentence(self, event):
         print("enter sentence")
@@ -729,10 +874,27 @@ class AnkiAdder:
         Triggered when we enter a sentence.
         Triggers create_word_selection_screen
         """
-        self.frame.destroy()
-        self.frame = tk.Frame(root, bg = "lightblue", width = self.width - 20, height = 30)
-        self.sentence_entry = self.sentence_entry_box.get()
+        self.sentence_entry = self.sentence_entry_box.get().strip()
+
+        if not self.sentence_entry:
+            return
+        translated = self.translate(self.sentence_entry)
+
         self.words_in_sentence = self.sentence_entry.split(" ")
+
+        self.chosen_words = []
+        self.word_buttons = []
+        self.word_screens = {}
+        self.current_word_screen = 0
+        self.num_words_selected = 0
+
+        for widget in self.word_buttons_frame.winfo_children():
+            widget.destroy()
+
+        if self.word_area.winfo_exists():
+            for widget in self.word_area.winfo_children():
+                widget.destroy()
+
         self.create_word_selection_screen()
 
     def show_frame(self, index):
@@ -772,27 +934,11 @@ class AnkiAdder:
         self.show_frame(self.current_word_screen)
         
 
-
-    def word_screen(self):
-        print("word screen")
-        """
-        Creates the screen that holds the word screen 
-        """
-        self.frameInner = tk.Frame(root, bg = "lightblue", width = self.width - 20, height = 30)
-        left_button = tk.Button(self.frameInner, text = "←", 
-            command= lambda change = -1: 
-            self.switch_screen(change))
-        
-        
-        right_button = tk.Button(self.frameInner, text = "→",
-                                 command= lambda change = -1: 
-                                             self.switch_screen(change))
-
         
         
 
 
-root = tk.Tk()
+root = customtkinter.CTk()
 ttk.Style().theme_use("clam")
 app = AnkiAdder(root)
 root.mainloop()
