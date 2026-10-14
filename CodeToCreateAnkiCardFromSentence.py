@@ -13,7 +13,7 @@ df = pd.read_csv(config.csv_file, sep="\t", names = ["Serbian_id", "Serbian", "E
 source_lang = 'sr'
 target_lang = 'en'
 
-letter_dict = {1: "č", 2: "ć", 3: "đ", 4: "š", 5: "ž"}
+letter_dict = {"1": "č", "2": "ć", "3": "đ", "4": "š", "5": "ž"}
 
 PROJECT_ID = config.project_id
 
@@ -566,6 +566,10 @@ class AnkiAdder:
             bg = self.main_frame.cget("bg")
         ).pack(side = "left", pady=(5,5), padx = (15))
 
+        tk.Label(self.main_frame,
+                    text = "č:1, ć:2, đ: 3, š: 4, ž: 5",
+                    font = ("Segoe UI", 15, "bold")).pack(padx = 2)
+
         self.sentence_card = customtkinter.CTkFrame(
             self.main_frame,
             fg_color = "#f4f7fb",
@@ -784,6 +788,12 @@ class AnkiAdder:
     def make_translated_text(self):
         sentence = self.sentence_entry_box.get().strip()
 
+        print(sentence)
+        for i in range(len(sentence)): 
+            print(sentence[i])
+            if sentence[i] in letter_dict.keys:
+                sentence[i] = letter_dict[sentence[i]]
+
         if not sentence: 
             self.translated_label_box.delete(0, tk.END)
             return
@@ -874,7 +884,19 @@ class AnkiAdder:
         Triggered when we enter a sentence.
         Triggers create_word_selection_screen
         """
-        self.sentence_entry = self.sentence_entry_box.get().strip()
+        sentence = self.sentence_entry_box.get().strip()
+    
+        print(f"sentence: {sentence}")
+        for number in letter_dict.keys():
+            sentence = sentence.replace(str(number), letter_dict[number]) 
+        print(f"sentence: {sentence}")
+
+        self.sentence_entry = sentence
+
+        self.sentence_entry_box.delete(0, tk.END)
+        self.sentence_entry_box.insert(0, sentence)
+
+        
 
         if not self.sentence_entry:
             return
